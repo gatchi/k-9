@@ -14,6 +14,7 @@ import com.fsck.k9.mail.Store;
 import com.fsck.k9.mail.oauth.OAuth2TokenProvider;
 import com.fsck.k9.mail.ssl.DefaultTrustedSocketFactory;
 import com.fsck.k9.mail.ssl.TrustedSocketFactory;
+import com.fsck.k9.mail.store.ews.EwsStore;
 import com.fsck.k9.mail.store.imap.ImapStore;
 import com.fsck.k9.mail.store.pop3.Pop3Store;
 import com.fsck.k9.mail.store.webdav.WebDavHttpClient;
@@ -60,7 +61,11 @@ public abstract class RemoteStore extends Store {
             } else if (uri.startsWith("pop3")) {
                 store = new Pop3Store(storeConfig, new DefaultTrustedSocketFactory(context));
             } else if (uri.startsWith("webdav")) {
-                store = new WebDavStore(storeConfig, new WebDavHttpClient.WebDavHttpClientFactory());
+                store = new WebDavStore(storeConfig,
+                            new WebDavHttpClient.WebDavHttpClientFactory());
+            } else if (uri.startsWith("ews")) {
+                store = new EwsStore(storeConfig,
+                        new DefaultTrustedSocketFactory(context));
             }
 
             if (store != null) {
@@ -109,6 +114,8 @@ public abstract class RemoteStore extends Store {
             return Pop3Store.decodeUri(uri);
         } else if (uri.startsWith("webdav")) {
             return WebDavStore.decodeUri(uri);
+        } else if (uri.startsWith("ews")) {
+            return EwsStore.decodeUri(uri);
         } else {
             throw new IllegalArgumentException("Not a valid store URI");
         }
