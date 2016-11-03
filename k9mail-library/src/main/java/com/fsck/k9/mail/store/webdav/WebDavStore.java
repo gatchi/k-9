@@ -19,6 +19,7 @@ import java.util.Map;
 import com.fsck.k9.mail.CertificateValidationException;
 import com.fsck.k9.mail.ConnectionSecurity;
 import com.fsck.k9.mail.Folder;
+import com.fsck.k9.mail.K9HttpClient;
 import com.fsck.k9.mail.K9MailLib;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mail.MessagingException;
@@ -80,8 +81,8 @@ public class WebDavStore extends RemoteStore {
     private String formBasedAuthPath;
     private String mailboxPath;
 
-    private final WebDavHttpClient.WebDavHttpClientFactory httpClientFactory;
-    private WebDavHttpClient httpClient = null;
+    private final K9HttpClient.K9HttpClientFactory httpClientFactory;
+    private K9HttpClient httpClient = null;
     private HttpContext httpContext = null;
     private String authString;
     private CookieStore authCookies = null;
@@ -91,7 +92,7 @@ public class WebDavStore extends RemoteStore {
     private Folder sendFolder = null;
     private Map<String, WebDavFolder> folderList = new HashMap<>();
 
-    public WebDavStore(StoreConfig storeConfig, WebDavHttpClient.WebDavHttpClientFactory clientFactory)
+    public WebDavStore(StoreConfig storeConfig, K9HttpClient.K9HttpClientFactory clientFactory)
             throws MessagingException {
         super(storeConfig, null);
         httpClientFactory = clientFactory;
@@ -500,7 +501,7 @@ public class WebDavStore extends RemoteStore {
                     request.setMethod("GET");
                     request.setHeader("Authorization", authString);
 
-                    WebDavHttpClient httpClient = getHttpClient();
+                    K9HttpClient httpClient = getHttpClient();
                     HttpResponse response = httpClient.executeOverride(request, httpContext);
 
                     int statusCode = response.getStatusLine().getStatusCode();
@@ -544,7 +545,7 @@ public class WebDavStore extends RemoteStore {
         // The latter two indicate form-based authentication.
         ConnectionInfo info = new ConnectionInfo();
 
-        WebDavHttpClient httpClient = getHttpClient();
+        K9HttpClient httpClient = getHttpClient();
 
         HttpGeneric request = new HttpGeneric(baseUrl);
         request.setMethod("GET");
@@ -601,7 +602,7 @@ public class WebDavStore extends RemoteStore {
             authCookies.clear();
         }
 
-        WebDavHttpClient httpClient = getHttpClient();
+        K9HttpClient httpClient = getHttpClient();
 
         String loginUrl;
         if (info != null) {
@@ -632,7 +633,7 @@ public class WebDavStore extends RemoteStore {
         boolean authenticated = testAuthenticationResponse(response);
         if (!authenticated) {
             // Check the response from the authentication request above for a form action.
-            String formAction = findFormAction(WebDavHttpClient.getUngzippedContent(response.getEntity()));
+            String formAction = findFormAction(K9HttpClient.getUngzippedContent(response.getEntity()));
             if (formAction == null) {
                 // If there is no form action, try using our redirect URL from the initial connection.
                 if (info != null && info.redirectUrl != null && !info.redirectUrl.equals("")) {
@@ -642,7 +643,7 @@ public class WebDavStore extends RemoteStore {
                     request.setMethod("GET");
 
                     response = httpClient.executeOverride(request, httpContext);
-                    formAction = findFormAction(WebDavHttpClient.getUngzippedContent(response.getEntity()));
+                    formAction = findFormAction(K9HttpClient.getUngzippedContent(response.getEntity()));
                 }
             }
             if (formAction != null) {
@@ -797,7 +798,7 @@ public class WebDavStore extends RemoteStore {
         return baseUrl;
     }
 
-    public WebDavHttpClient getHttpClient() throws MessagingException {
+    public K9HttpClient getHttpClient() throws MessagingException {
         if (httpClient == null) {
             httpClient = httpClientFactory.create();
             // Disable automatic redirects on the http client.
@@ -830,7 +831,7 @@ public class WebDavStore extends RemoteStore {
             return null;
         }
 
-        WebDavHttpClient httpClient = getHttpClient();
+        K9HttpClient httpClient = getHttpClient();
 
         try {
             int statusCode;
@@ -880,7 +881,7 @@ public class WebDavStore extends RemoteStore {
             }
 
             if (entity != null) {
-                return WebDavHttpClient.getUngzippedContent(entity);
+                return K9HttpClient.getUngzippedContent(entity);
             }
         } catch (UnsupportedEncodingException uee) {
             Timber.e(uee, "UnsupportedEncodingException: ");
