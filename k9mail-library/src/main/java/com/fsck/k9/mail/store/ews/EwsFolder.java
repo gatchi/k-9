@@ -1,46 +1,180 @@
 package com.fsck.k9.mail.store.ews;
 
-import com.fsck.k9.mail.Folder;
+import java.io.IOException;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import com.fsck.k9.mail.FetchProfile;
+import com.fsck.k9.mail.Flag;
 import com.fsck.k9.mail.Message;
+import com.fsck.k9.mail.MessageRetrievalListener;
 import com.fsck.k9.mail.MessagingException;
 
-import org.jdom2.Document;
-import org.jdom2.Element;
-import org.jdom2.Namespace;
-import org.jdom2.filter.ElementFilter;
-import org.jdom2.util.IteratorIterable;
+import microsoft.exchange.webservices.data.core.ExchangeService;
+import microsoft.exchange.webservices.data.core.enumeration.property.WellKnownFolderName;
+import microsoft.exchange.webservices.data.core.enumeration.search.FolderTraversal;
+import microsoft.exchange.webservices.data.core.exception.service.local.ServiceLocalException;
+import microsoft.exchange.webservices.data.core.service.folder.Folder;
+import microsoft.exchange.webservices.data.property.complex.FolderId;
+import microsoft.exchange.webservices.data.search.FolderView;
+import microsoft.exchange.webservices.data.search.ItemView;
+import microsoft.exchange.webservices.data.search.filter.SearchFilter;
 
-public abstract class EwsFolder extends Folder<Message> {
-    private String folderId;
+
+public class EwsFolder extends com.fsck.k9.mail.Folder<Message> {
+
+    private FolderId folderId;
+    private EwsStore store;
+    private String displayName;
+    private int messageCount;
+
+    public EwsFolder(EwsStore store, Folder folder)
+            throws ServiceLocalException {
+        this.store = store;
+        displayName = folder.getDisplayName();
+        folderId = folder.getId();
+    }
+
+    public EwsFolder(EwsStore store, String uniqueFolderId) throws Exception {
+        this.store = store;
+        this.folderId = new FolderId(uniqueFolderId);
+    }
+
+    @Override
+    public void open(int mode) throws MessagingException {
+        messageCount = -1;
+    }
+
+    @Override
+    public void close() {
+        folderId = null;
+    }
+
+    @Override
+    public boolean isOpen() {
+        return folderId != null;
+    }
+
+    @Override
+    public int getMode() {
+        return OPEN_MODE_RW;
+    }
+
+    @Override
+    public boolean create(FolderType type) throws MessagingException {
+        try {
+            ExchangeService service = store.getService();
+
+            service.createFolder(new Folder(service),
+                    store.getRootFolderId());
+        } catch (Exception e) {
+            throw new MessagingException("Unable to create folder", e);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean exists() throws MessagingException {
+        if (folderId != null) {
+            return true;
+        }
+        return checkFolderExistsRemotely();
+    }
+
+    private boolean checkFolderExistsRemotely() throws MessagingException {
+        FolderView folderView = new FolderView(Integer.MAX_VALUE);
+        folderView.setTraversal(FolderTraversal.Deep);
+        try {
+            for (Folder f:
+                    store.getService().findFolders(store.getRootFolderId(),
+                            folderView).getFolders()) {
+                if (f.getDisplayName().equals(displayName)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            throw new MessagingException("Unable to check folder existence", e);
+        }
+    }
+
+    @Override
+    public int getMessageCount() throws MessagingException {
+        return messageCount;
+    }
 
     @Override
     public int getUnreadMessageCount() throws MessagingException {
-        return Integer.parseInt(getFolderData().next().getChild("").getText());
+        try {
+            return Folder.bind(store.getService(), folderId).getUnreadCount();
+        } catch (Exception e) {
+            throw new MessagingException("Unable to get message count", e);
+        }
     }
 
-    private IteratorIterable<Element> getFolderData() {
-        String folderData = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
-                "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n" +
-                "   xmlns:t=\"http://schemas.microsoft.com/exchange/services/2006/types\">\n" +
-                "<soap:Header>\n" +
-                "    <t:RequestServerVersion Version=\"Exchange2007_SP1\" />\n" +
-                "  </soap:Header>\n" +
-                "  <soap:Body>\n" +
-                "    <GetFolder xmlns=\"http://schemas.microsoft.com/exchange/services/2006/messages\"\n" +
-                "               xmlns:t=\"http://schemas.microsoft.com/exchange/services/2006/types\">\n" +
-                "      <FolderShape>\n" +
-                "        <t:BaseShape>Default</t:BaseShape>\n" +
-                "      </FolderShape>\n" +
-                "      <FolderIds>\n" +
-                "        <t:DistinguishedFolderId Id=\""+this.folderId+"\"/>\n" +
-                "      </FolderIds>\n" +
-                "    </GetFolder>\n" +
-                "  </soap:Body>\n" +
-                "</soap:Envelope>\n";
-
-        return doSoapQuery(folderData).getDescendants(new ElementFilter("Folders",
-                Namespace.getNamespace("http://schemas.microsoft.com/exchange/services/2006/messages")));
+    @Override
+    public int getFlaggedMessageCount() throws MessagingException {
+        try {
+            //TODO: Implement this
+            return 0;
+        } catch (Exception e) {
+            throw new MessagingException("Unable to get message count", e);
+        }
     }
 
-    protected abstract Document doSoapQuery(String folderData);
+    @Override
+    public Message getMessage(String uid) throws MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<Message> getMessages(int start, int end, Date earliestDate, MessageRetrievalListener<Message> listener)
+            throws MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean areMoreMessagesAvailable(int indexOfOldestMessage, Date earliestDate)
+            throws IOException, MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, String> appendMessages(List<? extends Message> messages) throws MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setFlags(List<? extends Message> messages, Set<Flag> flags, boolean value) throws MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setFlags(Set<Flag> flags, boolean value) throws MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String getUidFromMessageId(Message message) throws MessagingException {
+        return null;
+    }
+
+    @Override
+    public void fetch(List<Message> messages, FetchProfile fp, MessageRetrievalListener<Message> listener)
+            throws MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void delete(boolean recurse) throws MessagingException {
+        throw new UnsupportedOperationException();
+    }
+
+    //TODO: DisplayName?
+    @Override
+    public String getName() {
+        return displayName;
+    }
 }
